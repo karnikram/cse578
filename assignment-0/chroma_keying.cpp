@@ -1,8 +1,3 @@
-/*
- * Target - green screen video
- * Source - background video
- */
-
 #include <iostream>
 #include <string>
 
@@ -30,20 +25,7 @@ void create_composite(const cv::Mat &fg, const cv::Mat &bg, const cv::Mat &resul
 	fg.copyTo(temp1,mask1);
 	bg.copyTo(temp2,mask2);
 
-	cv::namedWindow("masked fg",cv::WINDOW_AUTOSIZE);
-	cv::namedWindow("masked bg",cv::WINDOW_AUTOSIZE);
-
-	cv::imshow("masked fg",temp1);
-	cv::imshow("masked bg",temp2);
-
 	cv::add(temp1,temp2,result);
-	
-	cv::namedWindow("result",cv::WINDOW_AUTOSIZE);
-	cv::imshow("result",result);
-	
-	std::cout << temp1.type() << " " << temp2.type() << std::endl;
-
-	cv::waitKey();
 }
 
 int main(int argc, char *argv[])
@@ -68,21 +50,24 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	// TODO Check if both frames are of equal size
+
 	cv::Mat frame1, frame2;
 
-	cap1.read(frame1);
-	cap2.read(frame2);
+	cv::Size frame_size(cap1.get(cv::VideoCaptureProperties::CAP_PROP_FRAME_WIDTH),
+			cap1.get(cv::VideoCaptureProperties::CAP_PROP_FRAME_HEIGHT));
 
-	cv::Mat result_frame(frame1.size(), CV_8UC3);
-	
-	create_composite(frame1, frame2, result_frame);
+	cv::Mat result_frame(frame_size, CV_8UC3);
 
-	//cv::VideoWriter video_writer();
-	//while(cap1.read(frame1) && cap2.read(frame2))
-	//{
+	cv::VideoWriter video_writer("composite.mp4", cv::VideoWriter::fourcc('X','2','6','4'), 30, frame_size,true);;
 
-		//video_writer.write(result_frame);
-	//}
+	while(cap1.read(frame1) && cap2.read(frame2))
+	{
+		create_composite(frame1, frame2, result_frame);
+		video_writer.write(result_frame);
+	}
+
+	std::cout << "Done!\n";
 
 	return 0;
 }
