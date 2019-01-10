@@ -1,5 +1,5 @@
 /*
- * Code to concatenate a set of images
+ * Program to merge a set of images
  * into a video sequence. Assumes all images are of same size.
  *
  * Usage: ./images_to_video <path_to_image_folder> <frame_rate> <video_name>

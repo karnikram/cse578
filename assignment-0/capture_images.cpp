@@ -35,13 +35,15 @@ int main(int argc, char *argv[])
 	while(1)
 	{
 		cap.read(frame);
+		frame_no++;
+
 		cv::imshow("Feed", frame);
 		char c = cv::waitKey(10);
 		if(c == 27)
 			break;
 
 		std::stringstream image_path;
-		image_path << images_path << "/img" << std::setw(5) << std::setfill('0') << frame_no++ << ".png";
+		image_path << images_path << "/img" << std::setw(5) << std::setfill('0') << frame_no << ".png";
 		std::cout << "Writing frame into disk at " << image_path.str() << std::endl;
 		cv::imwrite(image_path.str(), frame);
 	}

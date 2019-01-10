@@ -1,5 +1,5 @@
 /*
- * Code to convert a given video sequence into
+ * Program to convert a given video sequence into
  * its constituent frames.
  *
  * Usage : ./video_to_images <path-to-video> <path-to-store-images>
@@ -32,15 +32,16 @@ int main(int argc, char *argv[])
 	}
 
 	std::cout << "Video opened!\n";
-	std::cout << "Number of frames in the video frame: " << cap.get(cv::VideoCaptureProperties::CAP_PROP_FRAME_COUNT) << std::endl;
+	std::cout << "Number of frames in the video: " << cap.get(cv::CAP_PROP_FRAME_COUNT) << std::endl;
 
 	cv::Mat frame;
 	size_t frame_no = 0;
 
 	while(cap.read(frame))
 	{
+		frame_no++;
 		std::stringstream image_path;
-		image_path << images_path << "/img" << std::setw(5) << std::setfill('0') << frame_no++ << ".png";
+		image_path << images_path << "/img" << std::setw(5) << std::setfill('0') << frame_no << ".png";
 		std::cout << "Writing frame #" << frame_no << " into disk at " << image_path.str() << std::endl;
 		cv::imwrite(image_path.str(), frame);
 	}

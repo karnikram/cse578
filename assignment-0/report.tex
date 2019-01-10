@@ -1,0 +1,70 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage[left=2.5cm, right=2.5cm]{geometry}
+\usepackage{listings}
+\pagenumbering{gobble}
+
+\usepackage{color}
+ 
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+ 
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    %basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+ 
+\lstset{style=mystyle}
+
+\begin{document}
+ \begin{center}
+  \Large{\textbf{CSE578 Computer Vision}}\\
+  \large{\textbf{Assignment 0 : OpenCV and Chroma Keying}}\\
+  \vspace{1em}
+  Karnik Ram\\
+  2018701007
+ \end{center}
+ 
+ \section{Video $\leftrightarrow$ Images}
+  Code is written to extract the constituent frames of a video and write them into a specified folder. The video is opened using the \texttt{VideoCapture} module and the frames are read one-by-one using the \texttt{read} function. These frames are then written into the specified directory using the \texttt{imwrite} function.
+  \subsection{Code}
+  \lstinputlisting[language=C++]{video_to_images.cpp}
+  
+  \vspace{1em}
+  Code is also written for merging a set of images from a specified folder into a single video. The folder name, desired frame rate, and desired video file name are taken as command line arguments. All the filenames in the specified folder are read using the \texttt{filesystem} module and then sorted according to name. Then the files are read in sorted order and written into a video using the \texttt{VideoWriter} module, at the specified frame rate. \\
+  
+  \subsection{Code}
+  \lstinputlisting[language=C++]{images_to_video.cpp}
+  \vspace{2em}
+
+ \section{Capturing Images}
+  Code is written to capture frames from the webcam (video device id 0) and write them into a specified folder. This is done using the \texttt{VideoCapture} module and \texttt{imwrite} function. The frames are captured until the Esc key is pressed and the frames are also shown on screen using the \texttt{imshow} function.
+  
+  \subsection{Code}
+  \lstinputlisting[language=C++]{capture_images.cpp}
+ 
+ \vspace{2em}
+ \section{Chroma keying}
+  \subsection{Code}
+  \lstinputlisting[language=c++]{chroma_keying.cpp}
+  \vspace{2em}
+  
+  \section*{Experiments}
+  \section*{Learnings}
+
+\end{document}
