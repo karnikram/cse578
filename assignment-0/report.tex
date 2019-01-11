@@ -1,8 +1,11 @@
 \documentclass[a4paper,11pt]{article}
 \usepackage[left=2.5cm, right=2.5cm]{geometry}
 \usepackage{listings}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
 \pagenumbering{gobble}
-
 \usepackage{color}
  
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -30,6 +33,8 @@
 }
  
 \lstset{style=mystyle}
+
+\graphicspath{{./images/}}
 
 \begin{document}
  \begin{center}
@@ -60,11 +65,57 @@
  
  \vspace{2em}
  \section{Chroma keying}
+  A basic Chroma Keying technique based on the constant back color assumption is implemented. Two video sequences are taken as input and a composite video sequence is created by replacing the constant green back color in the foreground video sequence with the colors from the target background sequence. 
+  
+  This is done by first creating two binary masks, based on whether the corresponding pixels in the foreground image are green or not, as shown in the sketch above. These masks are then applied to the foreground and background images respectively to cut out the foreground object from the foreground image and the corresponding pixels in the same position from the background image. These two masked-out images are then added togther to form the final composite image.
+  
+  \begin{figure}
+  \begin{center}
+   \includegraphics[scale=0.5]{chroma-keying-process}
+   \caption{Rough sketch illustrating the basic chroma keying technique}
+  \end{center}
+  \end{figure}
+
   \subsection{Code}
   \lstinputlisting[language=c++]{chroma_keying.cpp}
   \vspace{2em}
   
-  \section*{Experiments}
-  \section*{Learnings}
+  \section{Sample Images}
+  \begin{figure}[H]
+    \centering
+   \includegraphics[scale=0.2]{sample-1-min}\\
+   \vspace{2em}
+   \includegraphics[scale=0.2]{sample-2-min}
+   \caption{Composite scene involving a scared person running away from an Uber self-driving car.}
+  \end{figure}
+  
+   \begin{figure}[H]
+   \centering
+   \includegraphics[scale=0.2]{input-1}\\
+   \vspace{2em}
+   \includegraphics[scale=0.2]{input-2-min}
+   \caption{Frames from the input sequences.}
+  \end{figure}
+  
+ \href{https://drive.google.com/file/d/1Wk-gvBq0WLhlcZk-SBRSdigxSylmUiRm/view?usp=sharing}{Video link}
+
+  \section{Challenges and Experiments}
+  The main difficulty was in perfectly masking out the foreground object from the background since even the foreground object has some shades of green on it. I tried to finely determine the range of green values to mask out, by writing a small interactive program with trackbars to control the range of RGB values to mask out. But this did not help and some parts of the object were always being masked out as shown in Fig.\ref{fig:exp1}. I also tried to determine the range of values in the HSV space but that did not help much either.
+  
+  Another related problem was with the edge pixels that cover parts of both the foreground object and the background. I tried applying a smoothing operation over the foreground image and it did help with some of the green edge pixels to a degree but that reduced the sharpness of the object and made the composite look a lot less realistic.
+  
+  A further problem would be with translucent foreground objects, which were not present in my scene. But for such scenes, the Triangulation technique would be a much better solution.
+  
+  \begin{figure}[H]
+   \centering
+   \includegraphics[scale=0.3]{exp1}
+   \caption{Trying to precisely mask out all the green pixels in the image removes parts of the foreground object too.}
+   \label{fig:exp1}
+  \end{figure}
+
+  
+  \section{Learnings}
+  I got familiar with the basic API of OpenCV to load, read, and write images and videos, and with manipulating their pixel values. I also got familiar with CMake during the installation process.
+  I understood the Chroma Keying problem and its difficulty, and the extra constraints we need to introduce to reasonably solve the problem. I implemented and realized the weaknesses of a technique with constant back color assumption and tried out some approaches to solving them. 
 
 \end{document}

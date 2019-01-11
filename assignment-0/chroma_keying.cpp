@@ -1,3 +1,10 @@
+/* Program to composite two video sequences together.
+ * Usage: ./chroma_keying <video1-path> <video2-path>
+ *
+ * Video1 is assumed to be the foreground sequence with
+ * a constant green background. Video2 is the target background sequence.
+ */
+
 #include <iostream>
 #include <string>
 
@@ -7,14 +14,14 @@
 
 void create_composite(const cv::Mat &fg, const cv::Mat &bg, const cv::Mat &result)
 {
-	cv::Mat mask1(fg.rows, fg.cols, CV_8UC1, cv::Scalar(0));
-	cv::Mat mask2(fg.rows, fg.cols, CV_8UC1, cv::Scalar(0));
+	cv::Mat mask1(fg.size(), CV_8UC1, cv::Scalar(0));
+	cv::Mat mask2(fg.size(), CV_8UC1, cv::Scalar(0));
 
 	for(size_t i = 0; i < fg.rows; i++)
 		for(size_t j = 0; j < fg.cols; j++)
 		{
 			cv::Vec3b intensity = fg.at<cv::Vec3b>(i,j);
-			if(intensity[1] >= 200)
+			if(intensity[0] <= 100 && intensity[1] >= 100 && intensity[2] <=100)
 				mask2.at<uchar>(i,j) = 255;
 
 			else
@@ -50,20 +57,25 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	// TODO Check if both frames are of equal size
+	cv::Size v1_frame_size(cap1.get(cv::CAP_PROP_FRAME_WIDTH),
+			cap1.get(cv::CAP_PROP_FRAME_HEIGHT));
+	cv::Size v2_frame_size(cap2.get(cv::CAP_PROP_FRAME_WIDTH),
+			cap2.get(cv::CAP_PROP_FRAME_HEIGHT));
 
-	cv::Mat frame1, frame2;
-
-	cv::Size frame_size(cap1.get(cv::VideoCaptureProperties::CAP_PROP_FRAME_WIDTH),
-			cap1.get(cv::VideoCaptureProperties::CAP_PROP_FRAME_HEIGHT));
-
-	cv::Mat result_frame(frame_size, CV_8UC3);
-
-	cv::VideoWriter video_writer("composite.mp4", cv::VideoWriter::fourcc('X','2','6','4'), 30, frame_size,true);;
-
-	while(cap1.read(frame1) && cap2.read(frame2))
+	if(!(v1_frame_size.height == v2_frame_size.height && v1_frame_size.width == v1_frame_size.width))
 	{
-		create_composite(frame1, frame2, result_frame);
+		std::cout << "Video sequences are not of same size!\n";
+		return -1;
+	}
+
+	cv::VideoWriter video_writer("composite.mp4", cv::VideoWriter::fourcc('X','2','6','4'), 30, v1_frame_size,true);
+
+	cv::Mat fg, bg;
+	cv::Mat result_frame(v1_frame_size, CV_8UC3);
+
+	while(cap1.read(fg) && cap2.read(bg))
+	{
+		create_composite(fg, bg, result_frame);
 		video_writer.write(result_frame);
 	}
 
