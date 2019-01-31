@@ -1,4 +1,5 @@
 #include "calibrator.hpp"
+#include <stdlib.h>
 
 Calibrator::Calibrator(const Eigen::MatrixXf &points_3d, const Eigen::MatrixXf &points_2d)
 {
@@ -12,16 +13,27 @@ Calibrator::Calibrator(const Eigen::MatrixXf &points_3d, const Eigen::MatrixXf &
 	X.col(X.cols()-1).setOnes();
 }
 
-void Calibrator::calibrateByDlt()
+void Calibrator::calibrateByDlt(const std::vector<int> &sample_indices)
 {
+
+	Eigen::MatrixXf X_samples(sample_indices.size(),4);
+	Eigen::MatrixXf x_samples(sample_indices.size(),3);
+
+	int j = 0;	
+	for (int i : sample_indices)
+	{
+		X_samples.row(j) = X.row(i);
+		x_samples.row(j++) = x.row(j);
+	}
+
 	Eigen::MatrixXf p(12,1);
-	Eigen::MatrixXf M(2*x.rows(),12);
+	Eigen::MatrixXf M(2*x_samples.rows(),12);
 
 	//Build M
 	for(int i = 0,j=0; i < M.rows(); i+=2,j++)
 	{
-		M.row(i) << X.row(j) * -1, Eigen::MatrixXf::Zero(1,4), X.row(j) * x(j,0);
-		M.row(i+1) << Eigen::MatrixXf::Zero(1,4), X.row(j) * -1, X.row(j) * x(j,1);
+		M.row(i) << X_samples.row(j) * -1, Eigen::MatrixXf::Zero(1,4), X_samples.row(j) * x_samples(j,0);
+		M.row(i+1) << Eigen::MatrixXf::Zero(1,4), X_samples.row(j) * -1, X_samples.row(j) * x_samples(j,1);
 	}
 
 	std::cout << M << std::endl;
@@ -38,8 +50,38 @@ void Calibrator::calibrateByDlt()
 	std::cout << "P:\n" << P << std::endl;
 }
 
-void Calibrator::calibrateByDltRansac()
+void Calibrator::calibrateByDltRansac(const float &dist_threshold)
 {
+	
+	for(int n = 0; n < 500; n++)
+	{
+		std::vector<int> sample_indices = utils::generateRandomVector(0,X.rows(),6);
+		calibrateByDlt(sample_indices);
+	
+		std::vector<int> inlier_indices;
+		for(int i = 0; i < X.rows(); i++)
+		{
+			float dist = calcReprojectionError(X.row(i),x.row(i));
+			if(dist < dist_threshold)
+				inlier_indices.push_back(i); 
+		}
+
+		if(inlier_indices.size() > 0.8 * X.rows())
+		{
+			calibrateByDlt(inlier_indices);
+			return;
+		}
+	
+		else
+			continue;
+	}
+
+}
+
+float Calibrator::calcReprojectionError(const Eigen::Vector4f &X, const Eigen::Vector3f &x)
+{
+	Eigen::Vector3f est_x = P * X;
+	return (est_x - x).squaredNorm();
 }
 
 void Calibrator::decomposePMatrix(Eigen::MatrixXf &K, Eigen::MatrixXf &R, Eigen::MatrixXf &c)

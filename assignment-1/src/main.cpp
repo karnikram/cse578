@@ -23,18 +23,30 @@ int main(int argc, char *argv[])
 	}
 
 	Calibrator calib(points_3d, points_2d);
-	calib.calibrateByDlt();
 
-	Eigen::MatrixXf K,R,c;
-	calib.decomposePMatrix(K,R,c);
+	//calib.calibrateByDltRansac(5.0);
 
-	//cv::Mat frame;
-	//frame = cv::imread(frame_path,1);
+	//calib.calibrateByDlt();
 
-	//cv::namedWindow("frame",CV_WINDOW_NORMAL);
-	//cv::imshow("frame",frame);
+	//Eigen::MatrixXf K,R,c;
+	//calib.decomposePMatrix(K,R,c);
 
-	//cv::waitKey(0);
+	cv::Mat frame,undistorted_frame;
+	frame = cv::imread(frame_path,1);
+	
+	cv::Mat K = (cv::Mat_<double>(3,3) << 1.3459e+04, 77.5444, 2.9829e+03, 0, 1.3507e+04, 1.8488e+03, 0, 0, 1);
+
+	cv::Mat distortion = (cv::Mat_<double>(1,5) << 0.2963, -2.3011, 0.0017, 0.0112, 20.6084);
+
+	cv::undistort(frame,undistorted_frame,K,distortion); //extra argument - newcameramatrix?
+
+	cv::namedWindow("distorted frame",CV_WINDOW_NORMAL);
+	cv::imshow("distorted frame",frame);
+
+	cv::namedWindow("undistorted frame",CV_WINDOW_NORMAL);
+	cv::imshow("undistorted frame",undistorted_frame);
+
+	cv::waitKey(0);
 	
 	//drawOverlay(P,X,frame);
 
