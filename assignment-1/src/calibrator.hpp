@@ -21,7 +21,7 @@ class Calibrator
 		void calibrateByDltRansac(const float &dist_threshold);
 		float calcReprojectionError(const Eigen::Vector4f &X, const Eigen::Vector3f &x);
 		void decomposePMatrix(Eigen::MatrixXf &K, Eigen::MatrixXf &R, Eigen::MatrixXf &c);
-		void drawOverlay(cv::Mat frame);
+		void drawOverlay(cv::Mat &frame);
 		Eigen::MatrixXf getPMatrix();
 
 	private:

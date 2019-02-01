@@ -16,6 +16,9 @@ int main(int argc, char *argv[])
 	Eigen::MatrixXf points_3d;
 	utils::loadMatrix(points_3d_path,utils::getNumberofLines(points_3d_path),3,points_3d);
 
+	std::cout << "2d:\n" << points_2d << std::endl;
+	std::cout << "3d:\n" << points_3d << std::endl;
+
 	if(points_2d.rows() != points_3d.rows())
 	{
 		std::cout << "Number of correspondences don't match!\n";
@@ -24,14 +27,36 @@ int main(int argc, char *argv[])
 
 	Calibrator calib(points_3d, points_2d);
 
-	//calib.calibrateByDltRansac(5.0);
+	std::vector <int> sample_indices(points_3d.rows());
+	std::iota(std::begin(sample_indices), std::end(sample_indices), 0);
+	calib.calibrateByDlt(sample_indices);
 
-	//calib.calibrateByDlt();
-
-	//Eigen::MatrixXf K,R,c;
-	//calib.decomposePMatrix(K,R,c);
+	Eigen::MatrixXf K, R, c;
+	calib.decomposePMatrix(K,R,c);
 
 	cv::Mat frame,undistorted_frame;
+	frame = cv::imread(frame_path,1);
+	calib.drawOverlay(frame);
+
+	cv::namedWindow("frame",CV_WINDOW_NORMAL);
+	cv::imshow("frame",frame);
+	cv::waitKey(0);
+
+/*  
+	cv::Mat frame,undistorted_frame;
+	frame = cv::imread(frame_path,1);
+	cv::namedWindow("distorted frame",CV_WINDOW_NORMAL);
+	cv::imshow("distorted frame",frame);
+
+	cv::waitKey();
+*/
+
+/* 	calib.calibrateByDltRansac(5.0);
+
+	Eigen::MatrixXf K,R,c;
+	calib.decomposePMatrix(K,R,c);
+
+ 	cv::Mat frame,undistorted_frame;
 	frame = cv::imread(frame_path,1);
 	
 	cv::Mat K = (cv::Mat_<double>(3,3) << 1.3459e+04, 77.5444, 2.9829e+03, 0, 1.3507e+04, 1.8488e+03, 0, 0, 1);
@@ -47,8 +72,8 @@ int main(int argc, char *argv[])
 	cv::imshow("undistorted frame",undistorted_frame);
 
 	cv::waitKey(0);
-	
-	//drawOverlay(P,X,frame);
 
+	drawOverlay(P,X,frame);
+ */
 	return 0;
 }
