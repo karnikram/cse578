@@ -16,9 +16,6 @@ int main(int argc, char *argv[])
 	Eigen::MatrixXf points_3d;
 	utils::loadMatrix(points_3d_path,utils::getNumberofLines(points_3d_path),3,points_3d);
 
-	std::cout << "2d:\n" << points_2d << std::endl;
-	std::cout << "3d:\n" << points_3d << std::endl;
-
 	if(points_2d.rows() != points_3d.rows())
 	{
 		std::cout << "Number of correspondences don't match!\n";
@@ -29,7 +26,8 @@ int main(int argc, char *argv[])
 
 	std::vector <int> sample_indices(points_3d.rows());
 	std::iota(std::begin(sample_indices), std::end(sample_indices), 0);
-	calib.calibrateByDlt(sample_indices);
+	//calib.calibrateByDlt(sample_indices);
+	calib.calibrateByDltRansac(50);
 
 	Eigen::MatrixXf K, R, c;
 	calib.decomposePMatrix(K,R,c);
@@ -40,7 +38,7 @@ int main(int argc, char *argv[])
 
 	cv::namedWindow("frame",CV_WINDOW_NORMAL);
 	cv::imshow("frame",frame);
-	cv::waitKey(0);
+	cv::waitKey(0);	
 
 /*  
 	cv::Mat frame,undistorted_frame;

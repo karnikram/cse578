@@ -8,13 +8,18 @@ Calibrator::Calibrator(const Eigen::MatrixXf &points_3d, const Eigen::MatrixXf &
 	x.col(x.cols()-1).setOnes();
 
 	X = points_3d;
-	X = X * 0.01; // assumes points are in cm
+	X = X * 0.01; // assumes points are in cm, converting to m
 	X.conservativeResize(X.rows(),X.cols()+1);
 	X.col(X.cols()-1).setOnes();
 }
 
 void Calibrator::calibrateByDlt(const std::vector<int> &sample_indices)
 {
+	if(sample_indices.size() < 6)
+	{
+		std::cout << "Cannot run DLT! Require at least 6 correspondences.\n";
+		return;
+	}
 
 	Eigen::MatrixXf X_samples(sample_indices.size(),4);
 	Eigen::MatrixXf x_samples(sample_indices.size(),3);
@@ -30,7 +35,7 @@ void Calibrator::calibrateByDlt(const std::vector<int> &sample_indices)
 		for (int i : sample_indices)
 		{
 			X_samples.row(j) = X.row(i);
-			x_samples.row(j++) = x.row(j);
+			x_samples.row(j++) = x.row(i);
 		}
 	}
 
@@ -44,15 +49,15 @@ void Calibrator::calibrateByDlt(const std::vector<int> &sample_indices)
 		M.row(i+1) << Eigen::MatrixXf::Zero(1,4), X_samples.row(j) * -1, X_samples.row(j) * x_samples(j,1);
 	}
 
-	std::cout << M << std::endl;
-	std::cout << "M size:\n" << M.rows() << " " << M.cols() << std::endl;
+	//std::cout << M << std::endl;
+	//std::cout << "M size:\n" << M.rows() << " " << M.cols() << std::endl;
 
 	// Estimate p
 	Eigen::JacobiSVD<Eigen::MatrixXf> svd(M,Eigen::ComputeFullU | Eigen::ComputeFullV);
 	Eigen::MatrixXf V;
 	V = svd.matrixV();
 	p = V.col(V.cols()-1);
-	std::cout << "p:\n" << p << std::endl;
+	//std::cout << "p:\n" << p << std::endl;
 
 	// Build P
  	P.resize(3,4);
@@ -60,14 +65,16 @@ void Calibrator::calibrateByDlt(const std::vector<int> &sample_indices)
 	P.row(1) = p.segment(4,4);
 	P.row(2) = p.segment(8,4);
 	std::cout << "P:\n" << P << std::endl;
+	std::cout << "Average reprojection error:\n" << calcAvgReprojectionError(X_samples,x_samples) << std::endl;
 }
 
 void Calibrator::calibrateByDltRansac(const float &dist_threshold)
-{
-	
+{	
+	std::cout << "Running RANSAC...." << std::endl;
 	for(int n = 0; n < 500; n++)
 	{
-		std::vector<int> sample_indices = utils::generateRandomVector(0,X.rows(),6);
+		std::cout << "\n\nIteration #" << n+1 << std::endl;
+		std::vector<int> sample_indices = utils::generateRandomVector(0,X.rows()-1,6);
 		calibrateByDlt(sample_indices);
 	
 		std::vector<int> inlier_indices;
@@ -78,23 +85,50 @@ void Calibrator::calibrateByDltRansac(const float &dist_threshold)
 				inlier_indices.push_back(i); 
 		}
 
-		if(inlier_indices.size() > 0.8 * X.rows())
+		if(inlier_indices.size() > 0.2 * X.rows())
 		{
+			std::cout << "Found a model!\n" << "Number of inliers: " << inlier_indices.size() << std::endl;
+			std::cout << "Inliers: ";
+			for(int i : inlier_indices)
+				std::cout << i << " ";
+
+			std::cout << "\n";
 			calibrateByDlt(inlier_indices);
 			return;
 		}
 	
 		else
+		{
 			continue;
+			inlier_indices.clear();
+		}
 	}
 
+	std::cout << "Could not find a model!" << std::endl;
 }
 
-float Calibrator::calcReprojectionError(const Eigen::Vector4f &X, const Eigen::Vector3f &x)
+float Calibrator::calcReprojectionError(const Eigen::Vector4f &pt_3d, const Eigen::Vector3f &pt_img)
 {
-	Eigen::Vector3f est_x = P * X;
-	return (est_x - x).squaredNorm();
+	Eigen::Vector3f est_pt_img = P * pt_3d;
+	est_pt_img = est_pt_img / est_pt_img(2);
+	return (est_pt_img - pt_img).squaredNorm();
 }
+
+float Calibrator::calcAvgReprojectionError(const Eigen::MatrixXf &pts_3d, const Eigen::MatrixXf &pts_img)
+{
+	Eigen::MatrixXf est_pts_img = P * pts_3d.transpose();
+	Eigen::MatrixXf scale = est_pts_img.row(2).replicate(3,1);
+	est_pts_img = est_pts_img.array() / scale.array();
+
+	float total_error = 0;
+
+	for(int i = 0; i < pts_3d.rows(); i++)
+	{
+		total_error += (est_pts_img.col(i) - pts_img.row(i).transpose()).squaredNorm();
+	}
+
+	return total_error/pts_3d.rows();
+ }
 
 void Calibrator::decomposePMatrix(Eigen::MatrixXf &K, Eigen::MatrixXf &R, Eigen::MatrixXf &c)
 {
@@ -137,7 +171,7 @@ void Calibrator::drawOverlay(cv::Mat &frame)
 	//Mark points
 	for(int i = 0; i < X.rows(); i++)
 	{
-		cv::circle(frame,cv::Point(u(i),v(i)),20,cv::Scalar(255,0,0));
+		cv::circle(frame,cv::Point(u(i),v(i)),20,cv::Scalar(255,0,0),-1,CV_AA);
 	}
 
 	//Draw lines
