@@ -68,7 +68,7 @@ void Calibrator::calibrateByDlt(const std::vector<int> &sample_indices)
 	std::cout << "Average reprojection error:\n" << calcAvgReprojectionError(X_samples,x_samples) << std::endl;
 }
 
-void Calibrator::calibrateByDltRansac(const float &dist_threshold)
+void Calibrator::calibrateByDltRansac(const float &dist_threshold, std::vector<int> &inlier_indices)
 {	
 	std::cout << "Running RANSAC...." << std::endl;
 	for(int n = 0; n < 500; n++)
@@ -76,8 +76,8 @@ void Calibrator::calibrateByDltRansac(const float &dist_threshold)
 		std::cout << "\n\nIteration #" << n+1 << std::endl;
 		std::vector<int> sample_indices = utils::generateRandomVector(0,X.rows()-1,6);
 		calibrateByDlt(sample_indices);
+		//inlier_indices.insert(inlier_indices.end(),sample_indices.begin(),sample_indices.end());
 	
-		std::vector<int> inlier_indices;
 		for(int i = 0; i < X.rows(); i++)
 		{
 			float dist = calcReprojectionError(X.row(i),x.row(i));
@@ -85,7 +85,7 @@ void Calibrator::calibrateByDltRansac(const float &dist_threshold)
 				inlier_indices.push_back(i); 
 		}
 
-		if(inlier_indices.size() > 0.2 * X.rows())
+		if(inlier_indices.size() > 0.3 * X.rows())
 		{
 			std::cout << "Found a model!\n" << "Number of inliers: " << inlier_indices.size() << std::endl;
 			std::cout << "Inliers: ";
@@ -155,29 +155,49 @@ void Calibrator::decomposePMatrix(Eigen::MatrixXf &K, Eigen::MatrixXf &R, Eigen:
 	std::cout << "K:\n" << K << std::endl;
 }
 
-void Calibrator::drawOverlay(cv::Mat &frame)
+void Calibrator::drawOverlay(const std::vector<int> &sample_indices, cv::Mat &frame)
 {
-	Eigen::MatrixXf x,u,v;
-	x = P * X.transpose();
+	Eigen::MatrixXf X_samples(sample_indices.size(),4);
+	Eigen::MatrixXf x_samples(sample_indices.size(),3);
+
+	if(sample_indices.size() == X.rows())
+	{
+		X_samples = X;
+		x_samples = x;
+	}
+
+	else
+	{	int j = 0;	
+		for (int i : sample_indices)
+		{
+			X_samples.row(j) = X.row(i);
+			x_samples.row(j++) = x.row(i);
+		}
+	}
+
+	Eigen::MatrixXf est_x,est_u,est_v;
+	est_x = P * X_samples.transpose();
 
 	//std::cout << "image: \n" << x << std::endl;
 
-	u = x.row(0).array() / x.row(2).array();
-	v = x.row(1).array() / x.row(2).array();
+	est_u = est_x.row(0).array() / est_x.row(2).array();
+	est_v = est_x.row(1).array() / est_x.row(2).array();
 
 	//std::cout << "u:\n" << u << std::endl;
 	//std::cout << "test: u(2) \n"<< u(2) << std::endl;
 
 	//Mark points
-	for(int i = 0; i < X.rows(); i++)
+	for(int i = 0; i < x_samples.rows(); i++)
 	{
-		cv::circle(frame,cv::Point(u(i),v(i)),20,cv::Scalar(255,0,0),-1,CV_AA);
+		cv::circle(frame,cv::Point(x_samples(i,0),x_samples(i,1)),20,cv::Scalar(0,0,255),-1,CV_AA);
+		cv::circle(frame,cv::Point(est_u(i),est_v(i)),20,cv::Scalar(255,0,0),-1,CV_AA);
 	}
 
 	//Draw lines
-	for(int i = 0; i < X.rows() - 1; i++)
+	for(int i = 0; i < x_samples.rows() - 1; i++)
 	{
-		cv::line(frame,cv::Point(u(i),v(i)),cv::Point(u(i+1),v(i+1)),cv::Scalar(0,0,255),5,CV_AA);
+		cv::line(frame,cv::Point(x_samples(i,0),x_samples(i,1)),cv::Point(x_samples(i+1,0),x_samples(i+1,1)),cv::Scalar(0,0,255),5,CV_AA);
+		cv::line(frame,cv::Point(est_u(i),est_v(i)),cv::Point(est_u(i+1),est_v(i+1)),cv::Scalar(255,0,0),5,CV_AA);
 	}
 }
 
