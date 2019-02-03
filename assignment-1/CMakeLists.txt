@@ -7,10 +7,10 @@ set(CMAKE_BUILD_TYPE Debug)
 
 find_package(OpenCV REQUIRED)
 
-add_executable(main src/main.cpp src/utils.cpp src/calibrator.cpp)
-add_executable(opencv_imagelist_creator src/opencv_imagelist_creator.cpp)
-add_executable(opencv_calib src/opencv_calibration.cpp)
+add_executable(run_dlt src/run_dlt.cpp src/utils.cpp src/calibrator.cpp)
+add_executable(run_ransac_dlt src/run_ransac_dlt.cpp src/utils.cpp src/calibrator.cpp)
+add_executable(run_undistorted_dlt src/run_undistorted_dlt.cpp src/utils.cpp src/calibrator.cpp)
 
-target_link_libraries(main ${OpenCV_LIBS})
-target_link_libraries(opencv_imagelist_creator ${OpenCV_LIBS})
-target_link_libraries(opencv_calib ${OpenCV_LIBS})
+target_link_libraries(run_dlt ${OpenCV_LIBS})
+target_link_libraries(run_ransac_dlt ${OpenCV_LIBS})
+target_link_libraries(run_undistorted_dlt ${OpenCV_LIBS})

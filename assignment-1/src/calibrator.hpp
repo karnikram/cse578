@@ -18,9 +18,10 @@ class Calibrator
 	public: 
 		Calibrator(const Eigen::MatrixXf &points_3d, const Eigen::MatrixXf &points_2d);
 		void calibrateByDlt(const std::vector<int> &sample_indices);
-		void calibrateByDltRansac(const float &dist_threshold, std::vector<int> &inlier_indices);
+		void calibrateByDltRansac(const float &dist_threshold, const float &inlier_ratio, std::vector<int> &inlier_indices);
 		float calcReprojectionError(const Eigen::Vector4f &pt_3d, const Eigen::Vector3f &pt_img);
-		float calcAvgReprojectionError(const Eigen::MatrixXf &pts_3d, const Eigen::MatrixXf &pts_img);
+		float calcSetReprojectionError(const Eigen::MatrixXf &pts_3d, const Eigen::MatrixXf &pts_img);
+		float calcAvgReprojectionError();
 		void decomposePMatrix(Eigen::MatrixXf &K, Eigen::MatrixXf &R, Eigen::MatrixXf &c);
 		void drawOverlay(const std::vector<int> &sample_indices, cv::Mat &frame);
 		Eigen::MatrixXf getPMatrix();

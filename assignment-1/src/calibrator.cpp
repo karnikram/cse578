@@ -49,15 +49,11 @@ void Calibrator::calibrateByDlt(const std::vector<int> &sample_indices)
 		M.row(i+1) << Eigen::MatrixXf::Zero(1,4), X_samples.row(j) * -1, X_samples.row(j) * x_samples(j,1);
 	}
 
-	//std::cout << M << std::endl;
-	//std::cout << "M size:\n" << M.rows() << " " << M.cols() << std::endl;
-
 	// Estimate p
 	Eigen::JacobiSVD<Eigen::MatrixXf> svd(M,Eigen::ComputeFullU | Eigen::ComputeFullV);
 	Eigen::MatrixXf V;
 	V = svd.matrixV();
 	p = V.col(V.cols()-1);
-	//std::cout << "p:\n" << p << std::endl;
 
 	// Build P
  	P.resize(3,4);
@@ -65,18 +61,19 @@ void Calibrator::calibrateByDlt(const std::vector<int> &sample_indices)
 	P.row(1) = p.segment(4,4);
 	P.row(2) = p.segment(8,4);
 	std::cout << "P:\n" << P << std::endl;
-	std::cout << "Average reprojection error:\n" << calcAvgReprojectionError(X_samples,x_samples) << std::endl;
+	std::cout << "Average reprojection error:\n" << calcAvgReprojectionError() << std::endl;
 }
 
-void Calibrator::calibrateByDltRansac(const float &dist_threshold, std::vector<int> &inlier_indices)
+void Calibrator::calibrateByDltRansac(const float &dist_threshold, const float &inlier_ratio, std::vector<int> &inlier_indices)
 {	
 	std::cout << "Running RANSAC...." << std::endl;
+	std::vector<int> largest_support;
+
 	for(int n = 0; n < 500; n++)
 	{
 		std::cout << "\n\nIteration #" << n+1 << std::endl;
 		std::vector<int> sample_indices = utils::generateRandomVector(0,X.rows()-1,6);
 		calibrateByDlt(sample_indices);
-		//inlier_indices.insert(inlier_indices.end(),sample_indices.begin(),sample_indices.end());
 	
 		for(int i = 0; i < X.rows(); i++)
 		{
@@ -85,7 +82,7 @@ void Calibrator::calibrateByDltRansac(const float &dist_threshold, std::vector<i
 				inlier_indices.push_back(i); 
 		}
 
-		if(inlier_indices.size() > 0.3 * X.rows())
+		if(inlier_indices.size() >= inlier_ratio * X.rows())
 		{
 			std::cout << "Found a model!\n" << "Number of inliers: " << inlier_indices.size() << std::endl;
 			std::cout << "Inliers: ";
@@ -99,22 +96,40 @@ void Calibrator::calibrateByDltRansac(const float &dist_threshold, std::vector<i
 	
 		else
 		{
-			continue;
+			if(largest_support.size() <= inlier_indices.size())
+				largest_support = inlier_indices;
+
 			inlier_indices.clear();
 		}
 	}
 
-	std::cout << "Could not find a model!" << std::endl;
+	if(largest_support.size() >= 6)
+	{
+		std::cout << "Could not find a model according to threshold!\nSo using largest inlier set instead." << std::endl;
+		calibrateByDlt(largest_support);
+		inlier_indices = largest_support;
+		std::cout << "Number of inliers: " << inlier_indices.size() << std::endl;
+		for(int i : inlier_indices)
+			std::cout << i << " ";
+
+		std::cout << "\n";
+	}
+
+	else
+		std::cout << "Could not find a model!" << std::endl;
 }
 
 float Calibrator::calcReprojectionError(const Eigen::Vector4f &pt_3d, const Eigen::Vector3f &pt_img)
 {
 	Eigen::Vector3f est_pt_img = P * pt_3d;
 	est_pt_img = est_pt_img / est_pt_img(2);
-	return (est_pt_img - pt_img).squaredNorm();
+	float error = (est_pt_img - pt_img).squaredNorm();
+
+	return error;
 }
 
-float Calibrator::calcAvgReprojectionError(const Eigen::MatrixXf &pts_3d, const Eigen::MatrixXf &pts_img)
+
+float Calibrator::calcSetReprojectionError(const Eigen::MatrixXf &pts_3d, const Eigen::MatrixXf &pts_img)
 {
 	Eigen::MatrixXf est_pts_img = P * pts_3d.transpose();
 	Eigen::MatrixXf scale = est_pts_img.row(2).replicate(3,1);
@@ -127,7 +142,25 @@ float Calibrator::calcAvgReprojectionError(const Eigen::MatrixXf &pts_3d, const 
 		total_error += (est_pts_img.col(i) - pts_img.row(i).transpose()).squaredNorm();
 	}
 
-	return total_error/pts_3d.rows();
+	float avg_error = total_error/pts_3d.rows();
+	return avg_error;
+}
+
+float Calibrator::calcAvgReprojectionError()
+{
+	Eigen::MatrixXf est_pts_img = P * X.transpose();
+	Eigen::MatrixXf scale = est_pts_img.row(2).replicate(3,1);
+	est_pts_img = est_pts_img.array() / scale.array();
+
+	float total_error = 0;
+
+	for(int i = 0; i < X.rows(); i++)
+	{
+		total_error += (est_pts_img.col(i) - x.row(i).transpose()).squaredNorm();
+	}
+
+	float avg_error = total_error/X.rows();
+	return avg_error;
  }
 
 void Calibrator::decomposePMatrix(Eigen::MatrixXf &K, Eigen::MatrixXf &R, Eigen::MatrixXf &c)
