@@ -42,15 +42,45 @@ void generateX1X2(const std::vector<cv::Point2f> &img1_pts, const std::vector<cv
 
 void estimateHomography(const Eigen::MatrixXf &X1, const Eigen::MatrixXf &X2, Eigen::MatrixXf &H)
 {
+	Eigen::MatrixXf A(2*X1.rows(), 9);
+	Eigen::ArrayXf h(9);
+
+	for(int i = 0, j = 0; i < A.rows(); i+=2, j++)
+	{
+		A.row(i) << 0, 0, 0, -1 * X2(j,2) * X1.row(j), X2(j,1) * X1.row(j);
+		A.row(i+1) << X2(j,2) * X1.row(j), 0, 0, 0, -1 * X2(j,0) * X1.row(j);
+	}
+
+	std::cout << "A:\n" << A << std::endl;
+
+	Eigen::JacobiSVD<Eigen::MatrixXf> svd(A,Eigen::ComputeFullU | Eigen::ComputeFullV);
+	Eigen::MatrixXf V;
+	V = svd.matrixV();
+	h = V.col(V.cols()-1);
+
+	H.resize(3,3);
+	H.row(0) = h.segment(0,3);
+	H.row(1) = h.segment(3,3);
+	H.row(2) = h.segment(6,3);
+
+	std::cout << "h:\n" << h << std::endl;
+	std::cout << "H:\n" << H << std::endl;
 }
 
 void estimateRansacHomography(std::vector<cv::Point2f> &img1_pts, std::vector<cv::Point2f> &img2_pts, Eigen::MatrixXf &H)
 {
-	std::vector<int> sample_indices = utils::generateRandomVector(0,img1_pts.size()-1,4);
-	Eigen::MatrixXf X1, X2, H;
+	std::cout << "Estimating Homography within RANSAC..." << std::endl;
+	std::vector<int> largest_support;
+	Eigen::MatrixXf X1, X2;
 
-	generateX1X2(img1_pts,img2_pts,sample_indices,X1,X2);
-	estimateHomography(X2,X2,H);
+	for(size_t i = 0; i < 500; i++)
+	{
+		std::cout << "\n\nIteration#" << n+1 << std::endl;
+		std::vector<int> sample_indices = utils::generateRandomVector(0,img1_pts.size()-1,4);
+
+		generateX1X2(img1_pts,img2_pts,sample_indices,X1,X2);
+		estimateHomography(X2,X2,H);
+	}
 }
 
 int main(int argc, char *argv[])
