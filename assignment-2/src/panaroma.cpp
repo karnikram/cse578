@@ -6,6 +6,8 @@
 #include <Eigen/LU>
 
 #include <algorithm>
+#include <cmath>
+#include <fstream>
 
 Panaroma::Panaroma(std::vector<cv::Mat> images)
 {
@@ -67,6 +69,9 @@ void Panaroma::sampleFromX1X2(const Eigen::MatrixXf &X1, const Eigen::MatrixXf &
 		const std::vector<int> &sample_indices, Eigen::MatrixXf &sample_X1,
 		Eigen::MatrixXf &sample_X2)
 {
+	sample_X1.resize(0,0);
+	sample_X2.resize(0,0);
+
 	sample_X1.resize(sample_indices.size(),3);
 	sample_X2.resize(sample_indices.size(),3);
 
@@ -91,10 +96,18 @@ void Panaroma::estimateHomography(const Eigen::MatrixXf &X1, const Eigen::Matrix
 	}
 
 	//std::cout << "A:\n" << A << std::endl;
+	
+	cv::Mat cv_A,U,S,Vt;
+	eigen2cv(A,cv_A);
+	cv::SVD::compute(cv_A,U,S,Vt);
 
-	Eigen::JacobiSVD<Eigen::MatrixXf> svd(A,Eigen::ComputeFullU | Eigen::ComputeFullV);
-	Eigen::MatrixXf V;
-	V = svd.matrixV();
+	//Eigen::JacobiSVD<Eigen::MatrixXf> svd(A,Eigen::ComputeThinU | Eigen::ComputeThinV);
+	//Eigen::JacobiSVD<Eigen::MatrixXf> svd(A,Eigen::ComputeFullU | Eigen::ComputeFullV);
+	Eigen::MatrixXf V,tempV;
+	cv2eigen(Vt,tempV);
+	V = tempV.transpose();
+
+	//std::cout << "V:\n" << V << std::endl;
 	h = V.col(V.cols()-1);
 
 	H.resize(3,3);
@@ -109,43 +122,106 @@ void Panaroma::estimateHomography(const Eigen::MatrixXf &X1, const Eigen::Matrix
 	//std::cout << "Normalized H:\n" << H << std::endl;
 }
 
+float Panaroma::calcReprojectionError(const Eigen::MatrixXf &x1, const Eigen::MatrixXf &x2, const Eigen::MatrixXf &H)
+{
+	Eigen::Vector3f px2;
+	px2	= H * x1;
+	px2 = px2 / px2(2);
+
+	//std::cout << x1.transpose() << "   " << x2.transpose() << "   " <<  px2.transpose() << std::endl;
+
+	return (px2 - x2).squaredNorm();
+}
+
+float Panaroma::calcAvgReprojectionError(const Eigen::MatrixXf &X1, const Eigen::MatrixXf &X2, const Eigen::MatrixXf &H)
+{
+	float avg = 0, error;
+	Eigen::Vector3f x1, x2, px2;
+
+	for(size_t j = 0; j < X1.rows(); j++)
+	{
+		x1 = X1.row(j);
+		x2 = X2.row(j);
+		error = calcReprojectionError(x1,x2,H);
+		//std::cout << error << std::endl;
+		avg += error;
+	}
+
+	return avg/X1.rows();
+}
+
 void Panaroma::estimateRansacHomography(const Eigen::MatrixXf &X1, const Eigen::MatrixXf &X2,
 		const float &dist_threshold, const float &ratio_threshold, Eigen::MatrixXf &H,
 		std::vector<int> &inlier_indices)
 {
 	std::cout << "Estimating Homography within RANSAC..." << std::endl;
 	Eigen::MatrixXf sample_X1, sample_X2;
+	Eigen::Vector3f x1,x2;
 	std::vector<int> largest_support;
+	float inlier_avg = 0;
 
 	for(size_t i = 0; i < 2000; i++)
 	{
 		std::cout << "\n\nIteration#" << i+1 << std::endl;
 		std::vector<int> sample_indices = utils::generateRandomVector(0,X1.rows()-1,4);
+
 		sampleFromX1X2(X1,X2,sample_indices,sample_X1,sample_X2);
 		
 		estimateHomography(sample_X1,sample_X2,H);
+
+		//std::ofstream file1("file1.txt",std::ofstream::trunc);
 
 		for(size_t j = 0; j < X1.rows(); j++)
 		{
 			if(std::find(sample_indices.begin(),sample_indices.end(),j) != sample_indices.end())
 				continue;
 
-			Eigen::Vector3f px2	= H * (X1.row(j).transpose());
-			px2 = px2 / px2(2);
-			Eigen::Vector3f x2 = X2.row(j);
+			x1 = X1.row(j);
+			x2 = X2.row(j);
 
-			if( ((px2 - x2).norm()) <= dist_threshold )
+			if( calcReprojectionError(x1,x2,H) <= dist_threshold )
+			{
 				inlier_indices.push_back(j);
+				inlier_avg += calcReprojectionError(x1,x2,H);
+				//file1 << x1.transpose() << "   " << x2.transpose() << std::endl;
+			}
 		}
+
+		for(size_t k = 0; k < sample_X1.rows(); k++)
+		{
+			//file1 << sample_X1.row(k) << "   " << sample_X2.row(k) << std::endl;
+		}
+
+		//file1.close();
+		std::cout << "\nInlier avg: " << inlier_avg / inlier_indices.size() << std::endl;
+
+		//if((inlier_avg/inlier_indices.size()) < 1 && inlier_indices.size() >= 1)
+		//{
+		//	std::cout << "Inlier avg < 1\n";
+		//	return;
+		//}
+
+		inlier_avg = 0;
 
 		if(inlier_indices.size() >= X1.rows() * ratio_threshold)
 		{
 			std::cout << "\nFound a model!\nNumber of inliers: " << inlier_indices.size() << std::endl;
 			inlier_indices.insert(inlier_indices.end(),sample_indices.begin(),sample_indices.end());
-			sampleFromX1X2(X1,X2,inlier_indices,sample_X1,sample_X2);
-			estimateHomography(sample_X1,sample_X2,H);
 
+			sampleFromX1X2(X1,X2,inlier_indices,sample_X1,sample_X2);
+
+
+			//std::ofstream file2("file2.txt",std::ofstream::trunc);
+			for(size_t k = 0; k < sample_X1.rows(); k++)
+			{
+				//file2 << sample_X1.row(k) << "   " << sample_X2.row(k) << std::endl;
+			}
+
+			//file2.close();
+
+			estimateHomography(sample_X1,sample_X2,H);
 			std::cout << "Original number of SIFT matches: " << X1.rows() << std::endl;
+			std::cout << "Average reprojection error: " << calcAvgReprojectionError(sample_X1,sample_X2,H) << std::endl;
 			return;
 		}
 
@@ -164,11 +240,12 @@ void Panaroma::estimateRansacHomography(const Eigen::MatrixXf &X1, const Eigen::
 	if(largest_support.size() >= 4)
 	{
 		std::cout << "\nCould not find a model according to threshold!\nSo using largest inlier set instead." << std::endl;
-		std::cout << "Number of inliers: " << largest_support.size() << std::endl;
 		sampleFromX1X2(X1,X2,largest_support,sample_X1,sample_X2);
 		estimateHomography(sample_X1,sample_X2,H);
 		inlier_indices = largest_support;
+		std::cout << "Number of inliers: " << largest_support.size() << std::endl;
 		std::cout << "Original number of SIFT matches: " << X1.rows() << std::endl;
+		std::cout << "Average reprojection error: " << calcAvgReprojectionError(X1,X2,H) << std::endl;
 	}
 
 	else
@@ -221,26 +298,29 @@ void Panaroma::run(const float &dist_threshold, const float &ratio_threshold)
     generateMatches(images[0],images[1],X1,X2);
 
     Eigen::MatrixXf H;
-    //std::vector<int> inlier_indices;
-    //estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
+    std::vector<int> inlier_indices;
+    estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
 
-	std::vector<cv::Point2f> x1,x2;
-	cv::Point2f pt;
-	Eigen::Vector3f p;
-    for(size_t i = 0; i < X1.rows(); i++)
-    {
-		p = X1.row(i);
-	  	pt.x = p(0);
-		pt.y = p(1);
-		x1.push_back(pt);
+	//std::vector<cv::Point2f> x1,x2;
+	//cv::Point2f pt;
+	//Eigen::Vector3f p;
+    //for(size_t i = 0; i < X1.rows(); i++)
+    //{
+		//p = X1.row(i);
+	  	//pt.x = p(0);
+		//pt.y = p(1);
+		//x1.push_back(pt);
 		
-		p = X2.row(i);
-		pt.x = p(0);
-		pt.y = p(1);
-		x2.push_back(pt);
-    }
-    cv::Mat cv_H = cv::findHomography(x1,x2,cv::RANSAC);
-    cv2eigen(cv_H, H);
+		//p = X2.row(i);
+		//pt.x = p(0);
+		//pt.y = p(1);
+		//x2.push_back(pt);
+    //}
+    
+    //cv::Mat cv_H = cv::findHomography(x1,x2,cv::RANSAC);
+    //cv2eigen(cv_H, H);
+
+	//std::cout << "OpenCV H:\n"  << H << std::endl;
 
     cv::Mat testImage, mosaic;
     //cv::warpPerspective(images[1],testImage,cv_H,images[0].size());

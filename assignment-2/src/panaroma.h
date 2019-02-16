@@ -23,6 +23,10 @@ class Panaroma
        	void estimateHomography(const Eigen::MatrixXf &X1, const Eigen::MatrixXf &X2,
             Eigen::MatrixXf &H);
 
+        float calcReprojectionError(const Eigen::MatrixXf &x1, const Eigen::MatrixXf &x2, const Eigen::MatrixXf &H);
+
+        float calcAvgReprojectionError(const Eigen::MatrixXf &X1, const Eigen::MatrixXf &X2, const Eigen::MatrixXf &H);
+
         void estimateRansacHomography(const Eigen::MatrixXf &X1,
             const Eigen::MatrixXf &X2, const float &dist_threshold,
             const float &ratio_threshold, Eigen::MatrixXf &H, std::vector<int> &inlier_indices);

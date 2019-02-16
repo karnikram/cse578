@@ -1,7 +1,4 @@
-// Accept image paths via cli
-// Load images
 // Perform feature matching - in which order?
-// homography estimation
 
 #include "panaroma.h"
 
@@ -24,7 +21,7 @@ int main(int argc, char *argv[])
     std::cout << images.size() << " images loaded!\n";
 
     Panaroma panaroma(images);
-    panaroma.run(3, 0.995);
+    panaroma.run(5, 0.8);
 
     return 0;
 }
