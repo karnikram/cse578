@@ -1,6 +1,7 @@
 #include "panaroma.h"
 
 #include <opencv2/imgproc.hpp>
+#include <opencv2/calib3d.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <Eigen/LU>
 
@@ -116,7 +117,7 @@ void Panaroma::estimateRansacHomography(const Eigen::MatrixXf &X1, const Eigen::
 	Eigen::MatrixXf sample_X1, sample_X2;
 	std::vector<int> largest_support;
 
-	for(size_t i = 0; i < 500; i++)
+	for(size_t i = 0; i < 2000; i++)
 	{
 		std::cout << "\n\nIteration#" << i+1 << std::endl;
 		std::vector<int> sample_indices = utils::generateRandomVector(0,X1.rows()-1,4);
@@ -133,7 +134,7 @@ void Panaroma::estimateRansacHomography(const Eigen::MatrixXf &X1, const Eigen::
 			px2 = px2 / px2(2);
 			Eigen::Vector3f x2 = X2.row(j);
 
-			if( ((px2 - x2).squaredNorm()) < dist_threshold )
+			if( ((px2 - x2).norm()) <= dist_threshold )
 				inlier_indices.push_back(j);
 		}
 
@@ -174,10 +175,13 @@ void Panaroma::estimateRansacHomography(const Eigen::MatrixXf &X1, const Eigen::
 		std::cout << "Could not find a model!" << std::endl;
 }
 
-void Panaroma::warpImage(const cv::Mat &src_img, const Eigen::Matrix3f &H, cv::Mat &dst_img)
+void Panaroma::warpImage(cv::Mat src_img, const Eigen::Matrix3f &H, cv::Mat &dst_img)
 {
 	cv::Mat map_x, map_y;
-	dst_img = cv::Mat::zeros(src_img.size(),src_img.type());
+	dst_img = cv::Mat::zeros(2*src_img.rows,2*src_img.cols,src_img.type());
+	
+	cv::hconcat(src_img,cv::Mat::zeros(src_img.size(),src_img.type()),src_img);
+	cv::vconcat(src_img,cv::Mat::zeros(src_img.size(),src_img.type()),src_img);
 
 	map_x.create(src_img.size(),CV_32FC1);
 	map_y.create(src_img.size(),CV_32FC1);
@@ -186,7 +190,7 @@ void Panaroma::warpImage(const cv::Mat &src_img, const Eigen::Matrix3f &H, cv::M
 		for(int j = 0; j < dst_img.cols; j++)
 		{
 			Eigen::Vector3f x(j,i,1);
-			Eigen::Vector3f px = H.inverse() * x;
+			Eigen::Vector3f px = H * x;
 			px = px/px(2);
 
 			map_x.at<float>(i,j) = px(0);
@@ -194,6 +198,21 @@ void Panaroma::warpImage(const cv::Mat &src_img, const Eigen::Matrix3f &H, cv::M
 		}
 
 	cv::remap(src_img,dst_img,map_x,map_y,CV_INTER_LINEAR);
+
+	cv::Mat mosaic, temp;
+	cv::subtract(dst_img,src_img,temp);
+	cv::add(src_img,temp,mosaic);
+	cv::imshow("mosaic",mosaic);
+}
+
+void Panaroma::stitch(cv::Mat img1, cv::Mat img2, cv::Mat &result)
+{
+	cv::hconcat(img1,cv::Mat::zeros(img1.size(),img1.type()),img1);
+	cv::vconcat(img1,cv::Mat::zeros(img1.size(),img1.type()),img1);
+
+	cv::Mat temp;
+	cv::subtract(img1,img2,temp);
+	cv::add(img2,temp,result);
 }
 
 void Panaroma::run(const float &dist_threshold, const float &ratio_threshold)
@@ -202,16 +221,34 @@ void Panaroma::run(const float &dist_threshold, const float &ratio_threshold)
     generateMatches(images[0],images[1],X1,X2);
 
     Eigen::MatrixXf H;
-    std::vector<int> inlier_indices;
-    estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
+    //std::vector<int> inlier_indices;
+    //estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
 
-    cv::Mat cv_H;
-    eigen2cv(H, cv_H);
+	std::vector<cv::Point2f> x1,x2;
+	cv::Point2f pt;
+	Eigen::Vector3f p;
+    for(size_t i = 0; i < X1.rows(); i++)
+    {
+		p = X1.row(i);
+	  	pt.x = p(0);
+		pt.y = p(1);
+		x1.push_back(pt);
+		
+		p = X2.row(i);
+		pt.x = p(0);
+		pt.y = p(1);
+		x2.push_back(pt);
+    }
+    cv::Mat cv_H = cv::findHomography(x1,x2,cv::RANSAC);
+    cv2eigen(cv_H, H);
 
-    cv::Mat testImage;
+    cv::Mat testImage, mosaic;
     //cv::warpPerspective(images[1],testImage,cv_H,images[0].size());
 
     warpImage(images[1],H,testImage);
     cv::imshow("warped",testImage);
+
+    stitch(images[0],testImage,mosaic);
+	cv::imshow("Mosaic",mosaic);
     cv::waitKey(0);
 }

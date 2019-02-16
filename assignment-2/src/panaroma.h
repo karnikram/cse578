@@ -27,9 +27,9 @@ class Panaroma
             const Eigen::MatrixXf &X2, const float &dist_threshold,
             const float &ratio_threshold, Eigen::MatrixXf &H, std::vector<int> &inlier_indices);
 
-		void warpImage(const cv::Mat &src_img, const Eigen::Matrix3f &H, cv::Mat &dst_img);
+		void warpImage(cv::Mat src_img, const Eigen::Matrix3f &H, cv::Mat &dst_img);
 
-        void stitchImages();
+		void stitch(cv::Mat img1, cv::Mat img2, cv::Mat &result);
 
 		void run(const float &dist_threshold = 100, const float &ratio_threshold = 0.5);
 
