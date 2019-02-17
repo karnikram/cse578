@@ -1,4 +1,4 @@
-#include "utils.hpp"
+#include "utils.h"
 #include <chrono>
 
 std::vector<int> utils::generateRandomVector(const int &lrange, const int &urange, const int &size)
