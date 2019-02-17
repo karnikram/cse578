@@ -14,7 +14,7 @@ class Panaroma
 		Panaroma(std::vector<cv::Mat> images);
 
 		void generateMatches(const cv::Mat &img1, const cv::Mat &img2,
-            Eigen::MatrixXf &X1, Eigen::MatrixXf &X2);
+            Eigen::MatrixXf &X1, Eigen::MatrixXf &X2, int i);
 
 		void sampleFromX1X2(const Eigen::MatrixXf &X1, const Eigen::MatrixXf &X2,
 			const std::vector<int> &sample_indices, Eigen::MatrixXf &sample_X1,

@@ -7,7 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <fstream>
+#include <string>
 
 Panaroma::Panaroma(std::vector<cv::Mat> images)
 {
@@ -15,14 +15,14 @@ Panaroma::Panaroma(std::vector<cv::Mat> images)
 }
 
 void Panaroma::generateMatches(const cv::Mat &img1, const cv::Mat &img2,
-    	Eigen::MatrixXf &X1, Eigen::MatrixXf &X2)
+    	Eigen::MatrixXf &X1, Eigen::MatrixXf &X2, int i)
 {
     cv::Ptr<cv::xfeatures2d::SIFT> detector = cv::xfeatures2d::SIFT::create();
     std::vector<cv::KeyPoint> keypoints1, keypoints2;
     cv::Mat descriptors1, descriptors2;
 
-    detector->detectAndCompute(images[0], cv::noArray(), keypoints1, descriptors1);
-    detector->detectAndCompute(images[1], cv::noArray(), keypoints2, descriptors2);
+    detector->detectAndCompute(img1, cv::noArray(), keypoints1, descriptors1);
+    detector->detectAndCompute(img2, cv::noArray(), keypoints2, descriptors2);
 
     cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
     std::vector< std::vector<cv::DMatch> > knn_matches;
@@ -39,9 +39,11 @@ void Panaroma::generateMatches(const cv::Mat &img1, const cv::Mat &img2,
     }
 
     cv::Mat img_matches;
-    cv::drawMatches(images[0], keypoints1, images[1], keypoints2, good_matches, img_matches, cv::Scalar::all(-1),
+    cv::drawMatches(img1, keypoints1, img2, keypoints2, good_matches, img_matches, cv::Scalar::all(-1),
         cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-    cv::imshow("Good Matches", img_matches);
+    cv::imshow("Good Matches" + std::to_string(i), img_matches);
+
+	std::cout << "Number of matches found: " << good_matches.size() << std::endl;
 
 	X1.resize(good_matches.size(),2);
 	X2.resize(good_matches.size(),2);
@@ -269,29 +271,36 @@ void Panaroma::stitch(cv::Mat img1, cv::Mat img2, cv::Mat &result)
 
 void Panaroma::run(const float &dist_threshold, const float &ratio_threshold)
 {
-	Eigen::MatrixXf X1,X2;
-    generateMatches(images[0],images[1],X1,X2);
-
-    Eigen::MatrixXf H;
+	Eigen::MatrixXf X1,X2, H;
     std::vector<int> inlier_indices;
-    estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
-
     cv::Mat warped_image, mosaic, mosaic2;
 
-    warpImage(images[1],H,warped_image);
+	generateMatches(images[0],images[1],X1,X2,0);
+   	estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
+   	warpImage(images[1],H,warped_image);
+ 	stitch(images[0],warped_image,mosaic);
 
-    stitch(images[0],warped_image,mosaic);
-	cv::namedWindow("Mosaic",CV_WINDOW_NORMAL);
-	cv::imshow("Mosaic",mosaic);
-	
-	// generateMatches(mosaic,images[2],X1,X2);
-	// estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
+	//cv::namedWindow("Mosaic",CV_WINDOW_NORMAL);
+	//cv::imshow("Mosaic",mosaic);
 
-	// warpImage(images[2],H,testImage);
-	// stitch(mosaic,testImage,mosaic2);
+	X1.resize(0,0);
+	X2.resize(0,0);
+	inlier_indices.clear();
 
-	// cv::namedWindow("Mosaic 2",CV_WINDOW_NORMAL);
-	// cv::imshow("Mosaic 2",mosaic2);
+	for(size_t i = 2; i < images.size(); i++)
+	{
+		generateMatches(mosaic,images[i],X1,X2,i);
+   		estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
+	   	warpImage(images[i],H,warped_image);
+ 		stitch(mosaic,warped_image,mosaic);
+		X1.resize(0,0);
+		X2.resize(0,0);
+		inlier_indices.clear();
+	}
 
+	//cv::imshow("warped2",warped_image);
+
+	cv::namedWindow("Mosaic2",CV_WINDOW_NORMAL);
+	cv::imshow("Mosaic2",mosaic);
     cv::waitKey(0);
 }
