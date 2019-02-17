@@ -184,7 +184,7 @@ void Panaroma::estimateRansacHomography(const Eigen::MatrixXf &X1, const Eigen::
 			sampleFromX1X2(X1,X2,inlier_indices,sample_X1,sample_X2);
 			estimateHomography(sample_X1,sample_X2,H);
 			std::cout << "Original number of SIFT matches: " << X1.rows() << std::endl;
-			std::cout << "Average reprojection error over all matches: " << calcAvgReprojectionError(X1,X2,H) << std::endl;
+			std::cout << "Average reprojection error over inliers and sample set: " << calcAvgReprojectionError(sample_X1,sample_X2,H) << std::endl;
 			return;
 		}
 
@@ -208,17 +208,17 @@ void Panaroma::estimateRansacHomography(const Eigen::MatrixXf &X1, const Eigen::
 		inlier_indices = largest_support;
 		std::cout << "Number of inliers: " << largest_support.size() << std::endl;
 		std::cout << "Original number of SIFT matches: " << X1.rows() << std::endl;
-		std::cout << "Average reprojection error over all matches: " << calcAvgReprojectionError(X1,X2,H) << std::endl;
+		std::cout << "Average reprojection error over inliers and sample set: " << calcAvgReprojectionError(sample_X1,sample_X2,H) << std::endl;
 	}
 
 	else
 		std::cout << "Could not find a model!" << std::endl;
 }
 
-void Panaroma::warpImage(cv::Mat src_img, const Eigen::Matrix3f &H, cv::Mat &dst_img)
+void Panaroma::warpImage(cv::Mat src_img, const Eigen::Matrix3f &H, cv::Mat &warped_img)
 {
 	cv::Mat map_x, map_y;
-	dst_img = cv::Mat::zeros(2*src_img.rows,2*src_img.cols,src_img.type());
+	warped_img = cv::Mat::zeros(2*src_img.rows,2*src_img.cols,src_img.type());
 	
 	cv::hconcat(src_img,cv::Mat::zeros(src_img.size(),src_img.type()),src_img);
 	cv::vconcat(src_img,cv::Mat::zeros(src_img.size(),src_img.type()),src_img);
@@ -226,8 +226,8 @@ void Panaroma::warpImage(cv::Mat src_img, const Eigen::Matrix3f &H, cv::Mat &dst
 	map_x.create(src_img.size(),CV_32FC1);
 	map_y.create(src_img.size(),CV_32FC1);
 	
-	for(int i = 0; i < dst_img.rows; i++)
-		for(int j = 0; j < dst_img.cols; j++)
+	for(int i = 0; i < warped_img.rows; i++)
+		for(int j = 0; j < warped_img.cols; j++)
 		{
 			Eigen::Vector3f x(j,i,1);
 			Eigen::Vector3f px = H * x;
@@ -237,13 +237,30 @@ void Panaroma::warpImage(cv::Mat src_img, const Eigen::Matrix3f &H, cv::Mat &dst
 			map_y.at<float>(i,j) = px(1);
 		}
 
-	cv::remap(src_img,dst_img,map_x,map_y,CV_INTER_LINEAR);
+	cv::remap(src_img,warped_img,map_x,map_y,CV_INTER_LINEAR);
 }
 
 void Panaroma::stitch(cv::Mat img1, cv::Mat img2, cv::Mat &result)
 {
-	cv::hconcat(img1,cv::Mat::zeros(img1.size(),img1.type()),img1);
-	cv::vconcat(img1,cv::Mat::zeros(img1.size(),img1.type()),img1);
+	//img2 is warped
+	//img1 is base
+	//both should be of same size
+
+	int rows_offset, cols_offset;
+	rows_offset = img1.rows - img2.rows;
+	cols_offset = img1.cols - img2.cols;
+
+	if(rows_offset < 0)
+		cv::vconcat(img1,cv::Mat::zeros(abs(rows_offset),img1.cols,img1.type()),img1);
+	
+	else if(rows_offset > 0)
+		cv::vconcat(img2,cv::Mat::zeros(abs(rows_offset),img2.cols,img2.type()),img2);
+
+	if(cols_offset < 0)
+		cv::hconcat(img1,cv::Mat::zeros(img1.rows,abs(cols_offset),img1.type()),img1);
+
+	else if(cols_offset > 0)
+		cv::hconcat(img2,cv::Mat::zeros(img2.rows,abs(cols_offset),img2.type()),img2);
 
 	cv::Mat temp;
 	cv::subtract(img1,img2,temp);
@@ -259,12 +276,22 @@ void Panaroma::run(const float &dist_threshold, const float &ratio_threshold)
     std::vector<int> inlier_indices;
     estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
 
-    cv::Mat testImage, mosaic;
+    cv::Mat warped_image, mosaic, mosaic2;
 
-    warpImage(images[1],H,testImage);
+    warpImage(images[1],H,warped_image);
 
-    stitch(images[0],testImage,mosaic);
+    stitch(images[0],warped_image,mosaic);
 	cv::namedWindow("Mosaic",CV_WINDOW_NORMAL);
 	cv::imshow("Mosaic",mosaic);
+	
+	// generateMatches(mosaic,images[2],X1,X2);
+	// estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
+
+	// warpImage(images[2],H,testImage);
+	// stitch(mosaic,testImage,mosaic2);
+
+	// cv::namedWindow("Mosaic 2",CV_WINDOW_NORMAL);
+	// cv::imshow("Mosaic 2",mosaic2);
+
     cv::waitKey(0);
 }

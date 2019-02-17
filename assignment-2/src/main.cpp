@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     std::cout << images.size() << " images loaded!\n";
 
     Panaroma panaroma(images);
-    panaroma.run(5, 0.8);
+    panaroma.run(10, 0.8);
 
     return 0;
 }
