@@ -16,36 +16,36 @@ Panaroma::Panaroma(const std::vector<cv::Mat> &images, const std::string &output
 }
 
 void Panaroma::generateMatches(const cv::Mat &img1, const cv::Mat &img2,
-    	Eigen::MatrixXf &X1, Eigen::MatrixXf &X2, const int &id)
+		Eigen::MatrixXf &X1, Eigen::MatrixXf &X2, const int &id)
 {
-    cv::Ptr<cv::xfeatures2d::SIFT> detector = cv::xfeatures2d::SIFT::create();
-    std::vector<cv::KeyPoint> keypoints1, keypoints2;
-    cv::Mat descriptors1, descriptors2;
+	cv::Ptr<cv::xfeatures2d::SIFT> detector = cv::xfeatures2d::SIFT::create();
+	std::vector<cv::KeyPoint> keypoints1, keypoints2;
+	cv::Mat descriptors1, descriptors2;
 
 	//Detection and description
-    detector->detectAndCompute(img1, cv::noArray(), keypoints1, descriptors1);
-    detector->detectAndCompute(img2, cv::noArray(), keypoints2, descriptors2);
+	detector->detectAndCompute(img1, cv::noArray(), keypoints1, descriptors1);
+	detector->detectAndCompute(img2, cv::noArray(), keypoints2, descriptors2);
 
 	//Matching
-    cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
-    std::vector< std::vector<cv::DMatch> > knn_matches;
-    matcher->knnMatch( descriptors1, descriptors2, knn_matches, 2 );
+	cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
+	std::vector< std::vector<cv::DMatch> > knn_matches;
+	matcher->knnMatch( descriptors1, descriptors2, knn_matches, 2 );
 
 	//Refine matches using Lowe's ratio threshold
-    const float ratio_thresh = 0.7f;
-    std::vector<cv::DMatch> good_matches;
-    for(size_t i = 0; i < knn_matches.size(); i++)
-    {
-        if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance)
-        {
-            good_matches.push_back(knn_matches[i][0]);
-        }
-    }
+	const float ratio_thresh = 0.7f;
+	std::vector<cv::DMatch> good_matches;
+	for(size_t i = 0; i < knn_matches.size(); i++)
+	{
+		if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance)
+		{
+			good_matches.push_back(knn_matches[i][0]);
+		}
+	}
 
-    cv::Mat img_matches;
-    cv::drawMatches(img1, keypoints1, img2, keypoints2, good_matches, img_matches, cv::Scalar::all(-1),
-        cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-    cv::imshow("Good Matches " + std::to_string(id), img_matches);
+	cv::Mat img_matches;
+	cv::drawMatches(img1, keypoints1, img2, keypoints2, good_matches, img_matches, cv::Scalar::all(-1),
+		cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+	cv::imshow("Good Matches " + std::to_string(id), img_matches);
 	std::cout << "Number of matches found: " << good_matches.size() << std::endl;
 
 	//Store corresponding points in homogeneous representation
@@ -90,7 +90,7 @@ void Panaroma::sampleFromX1X2(const Eigen::MatrixXf &X1, const Eigen::MatrixXf &
 }
 
 void Panaroma::estimateHomography(const Eigen::MatrixXf &X1, const Eigen::MatrixXf &X2,
-    	Eigen::MatrixXf &H)
+		Eigen::MatrixXf &H)
 {
 	Eigen::MatrixXf A(2*X1.rows(), 9);
 	Eigen::ArrayXf h(9);
@@ -251,8 +251,8 @@ void Panaroma::stitch(cv::Mat img1, cv::Mat img2, cv::Mat &result)
 	int rows_offset, cols_offset;
 	rows_offset = img1.rows - img2.rows;
 	cols_offset = img1.cols - img2.cols;
-    
-    // To ensure both images are of same size
+	
+	// To ensure both images are of same size
 	if(rows_offset < 0)
 		cv::vconcat(img1,cv::Mat::zeros(abs(rows_offset),img1.cols,img1.type()),img1);
 	
@@ -273,8 +273,8 @@ void Panaroma::stitch(cv::Mat img1, cv::Mat img2, cv::Mat &result)
 void Panaroma::run(const float &dist_threshold, const float &ratio_threshold)
 {
 	Eigen::MatrixXf X1,X2, H;
-    std::vector<int> inlier_indices;
-    cv::Mat warped_image, mosaic;
+	std::vector<int> inlier_indices;
+	cv::Mat warped_image, mosaic;
 
 	generateMatches(images[0],images[1],X1,X2,0);
    	estimateRansacHomography(X1,X2,dist_threshold,ratio_threshold,H,inlier_indices);
@@ -301,5 +301,5 @@ void Panaroma::run(const float &dist_threshold, const float &ratio_threshold)
 	cv::imwrite(output_path,mosaic);
 
 	std::cout << "Output mosaic written to "<< output_path << " !" << std::endl;
-    cv::waitKey(0);
+	cv::waitKey(0);
 }
