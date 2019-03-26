@@ -34,11 +34,22 @@ int main(int argc, char **argv)
 		switch(c)
 		{
 			case '\x1b':
-				std::cout << "Saving output file and closing..\n";
-				goto exit;
+				{
+					std::cout << "Saving output file and closing..\n";
+					goto exit;
+				}
+				break;
 			
-			case 'n':
-				std::cout << "Running iteration #" << std::endl;
+			case 's':
+				{
+					if(grabcut.getRoiState() == GrabCut::SET)
+					{
+						std::cout << "Starting grabcut!\n" << std::endl;
+						grabcut.initializeModel();
+					}
+					else
+						std::cout << "First select ROI!\n" << std::endl;
+				}
 				break;
 		}
 	}
