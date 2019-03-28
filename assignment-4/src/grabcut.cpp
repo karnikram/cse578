@@ -1,13 +1,15 @@
 #include "grabcut.h"
 #include <opencv2/highgui.hpp>
-
-GrabCut::GrabCut()
-{
-}
+#include <boost/filesystem.hpp>
 
 void GrabCut::setInputImage(const cv::Mat &input_img)
 {
 	this->input_img = input_img;
+}
+
+void GrabCut::setOutputPath(const std::string &output_path)
+{
+	this->output_path = output_path;
 }
 
 uchar GrabCut::getRoiState()
@@ -48,8 +50,7 @@ void GrabCut::captureMouseClick(int event, int x, int y, int flags, void *userda
 					roi = cv::Rect(cv::Point(roi.x,roi.y),cv::Point(x,y));
 					roi_state = SET;
 					showInputImage();
-					initializeModel();
-					std::cout << "Initialization complete!\n";
+					std::cout << "Region set!\nPress 's' to start GrabCut!\n";
 				}
 			}
 			break;
@@ -66,7 +67,7 @@ void GrabCut::captureMouseClick(int event, int x, int y, int flags, void *userda
 	}
 }
 
-void GrabCut::initializeModel()
+void GrabCut::initializeGmm()
 {
 	// Assign initial opacity values based on selected background region
 	alpha_matte.create(input_img.size(), CV_8UC1);	
@@ -268,11 +269,11 @@ double GrabCut::estimateBeta()
 		}
 
 	beta = (2.0f*beta) / (4*input_img.cols*input_img.rows - 3*input_img.cols - 3*input_img.rows +2);
+	//beta = (2.0f*beta) / (2*input_img.cols*input_img.rows - input_img.cols - input_img.rows);
 	beta = 1.0f/beta;
 
 	return beta;
 }
-
 
 void GrabCut::estimateNeighborWeights(const double &beta, const double &gamma, cv::Mat &left_weights,
 		cv::Mat &up_weights, cv::Mat &up_left_weights, cv::Mat &up_right_weights)
@@ -294,7 +295,7 @@ void GrabCut::estimateNeighborWeights(const double &beta, const double &gamma, c
 				diff = pixel - input_img.at<cv::Vec3b>(x, y - 1);
 				up_weights.at<double>(x, y) = gamma * exp(-beta*diff.dot(diff));
 			}
-
+			
 			if(x>0 && y>0)
 			{
 				diff = pixel - input_img.at<cv::Vec3b>(x - 1, y - 1);
@@ -308,7 +309,6 @@ void GrabCut::estimateNeighborWeights(const double &beta, const double &gamma, c
 			}
 		}
 }
-
 
 void GrabCut::constructGraph(const double &lambda, const cv::Mat &left_weights,
 		const cv::Mat &up_weights, const cv::Mat &up_left_weights,
@@ -386,7 +386,7 @@ void GrabCut::constructGraph(const double &lambda, const cv::Mat &left_weights,
 				n_weight = up_weights.at<double>(x, y);
 				graph->add_edge(node_id, node_id - 1, n_weight, n_weight);
 			}
-
+			
 			if(x>0 && y>0)
 			{
 				n_weight = up_left_weights.at<double>(x, y);
@@ -404,7 +404,6 @@ void GrabCut::constructGraph(const double &lambda, const cv::Mat &left_weights,
 void GrabCut::estimateSegmentation(GraphType *graph)
 {
 	int flow = graph->maxflow();
-	std::cout << flow << std::endl;
 
 	for(int x = 0; x < alpha_matte.rows; x++)
 		for(int y = 0; y < alpha_matte.cols; y++)
@@ -418,54 +417,78 @@ void GrabCut::estimateSegmentation(GraphType *graph)
 					alpha_matte.at<uchar>(x, y) = PBG;
 			}
 		}
-}
 
-void GrabCut::displayResult()
-{
-	cv::Mat result_image = cv::Mat::zeros(input_img.size(), CV_8UC3);
+	//extract foreground image
+	foreground = cv::Mat::zeros(input_img.size(), CV_8UC3);
 
 	for(int i = 0; i < input_img.rows; i++)
 		for(int j = 0; j < input_img.cols; j++)
 			if(alpha_matte.at<uchar>(i, j) == PFG || alpha_matte.at<uchar>(i, j) == FG)
-				result_image.at<cv::Vec3b>(i, j) = input_img.at<cv::Vec3b>(i, j);
-
-	cv::namedWindow("Result image", CV_WINDOW_NORMAL);
-	cv::imshow("Result image", result_image);
-	cv::waitKey(0);
+				foreground.at<cv::Vec3b>(i, j) = input_img.at<cv::Vec3b>(i, j);
 }
 
 void GrabCut::runGrabCut()
 {
 	int num_nodes = input_img.cols * input_img.rows;
 	int num_edges = 4*input_img.cols*input_img.rows - 3*input_img.cols -3*input_img.rows + 2;
-
+	//int num_edges = 2*input_img.cols*input_img.rows - input_img.cols - input_img.rows;
 	double beta = estimateBeta();
-	double gamma = 10;
-	double lambda = 100;
+	double gamma = 20;
+	double lambda = 200;
 
 	cv::Mat left_weights = cv::Mat::zeros(input_img.size(), CV_64FC1);
 	cv::Mat up_weights = cv::Mat::zeros(input_img.size(), CV_64FC1);
 	cv::Mat up_left_weights = cv::Mat::zeros(input_img.size(), CV_64FC1);
 	cv::Mat up_right_weights = cv::Mat::zeros(input_img.size(), CV_64FC1);
 
+	int iter = 1;
+	std::cout << "Running iteration #" << iter++ << std::endl;
+
 	estimateNeighborWeights(beta, gamma, left_weights, up_weights, up_left_weights, up_right_weights);
 
-	//std::cout << left_weights << std::endl;
+	initializeGmm();
+	std::cout << "Initialization complete!\n";
 
-	GraphType *graph = new GraphType(num_nodes, num_edges);
-	//assignGmmComponents();
-	//learnGmmParameters();
-	constructGraph(lambda, left_weights, up_weights, up_left_weights, up_right_weights, graph);
-	estimateSegmentation(graph);
+	cv::namedWindow("Foreground", CV_WINDOW_NORMAL);
 
-	for(int i = 1; i < 10; i++)
+	while(1)	
 	{
-		assignGmmComponents();
-		learnGmmParameters();
+
 		GraphType *graph = new GraphType(num_nodes, num_edges);
 		constructGraph(lambda, left_weights, up_weights, up_left_weights, up_right_weights, graph);
 		estimateSegmentation(graph);
-		displayResult();
-	}
+		std::cout << "Segmentation complete!\n";
 
+		cv::imshow("Foreground", foreground);
+		std::cout << "\nPress 'c' for another iteration\nPress 'Esc' to save output and exit\n\n";
+
+		while(1)
+		{
+			char c = cv::waitKey(0);
+
+			if(c == 'c')
+			{
+				std::cout << "Running iteration #" << iter++ << std::endl;
+				break;
+			}
+
+			else if(c == '\x1b')
+			{
+				std::cout << "Saving output..\n";
+				cv::imwrite(output_path, foreground);
+				boost::filesystem::path p(output_path);
+				std::string file_name = p.filename().string();
+				cv::Mat temp_img;
+				input_img.copyTo(temp_img);
+				cv::rectangle(temp_img,cv::Point(roi.x,roi.y),cv::Point(roi.x + roi.width,
+					roi.y + roi.height),cv::Scalar(0,0,255),2);
+				cv::imwrite("../data/results/input/" + file_name, temp_img);
+
+				return;
+			}
+		}
+
+		assignGmmComponents();
+		learnGmmParameters();
+	}
 }

@@ -13,8 +13,9 @@ typedef Graph<int, int, int> GraphType;
 class GrabCut
 {
 	public:
-		GrabCut();
 		void setInputImage(const cv::Mat &input_img);
+
+		void setOutputPath(const std::string &output_img_path);
 
 		void showInputImage();
 
@@ -22,7 +23,7 @@ class GrabCut
 
 		uchar getRoiState();
 
-		void initializeModel();
+		void initializeGmm();
 
 		void assignGmmComponents();
 
@@ -40,7 +41,7 @@ class GrabCut
 
 		void estimateSegmentation(GraphType *graph);
 
-		void displayResult();
+		void displayForeground();
 
 		void runGrabCut();
 
@@ -50,10 +51,12 @@ class GrabCut
 
 	private:
 		cv::Mat input_img, roi_image;
+		std::string output_path;
 		cv::Rect roi;
 		uchar roi_state;
 		cv::Mat alpha_matte;
 		int num_components = 5;
 		GMM bg_gmm, fg_gmm;
 		cv::Mat pixel_to_component;
+		cv::Mat foreground;
 };

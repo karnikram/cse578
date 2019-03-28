@@ -23,6 +23,7 @@ int main(int argc, char **argv)
 
 	cv::Mat input_img = cv::imread(argv[1], 1);
 	grabcut.setInputImage(input_img);
+	grabcut.setOutputPath(output_img_path);
 
 	cv::namedWindow("Input image",CV_WINDOW_NORMAL);
 	cv::imshow("Input image",input_img);
@@ -35,7 +36,6 @@ int main(int argc, char **argv)
 		{
 			case '\x1b':
 				{
-					std::cout << "Saving output file and closing..\n";
 					goto exit;
 				}
 				break;
@@ -46,6 +46,7 @@ int main(int argc, char **argv)
 					{
 						std::cout << "Starting grabcut!\n" << std::endl;
 						grabcut.runGrabCut();
+						goto exit;
 					}
 					else
 						std::cout << "First select ROI!\n" << std::endl;

@@ -5,7 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE Debug)
 
 find_package(OpenCV REQUIRED)
+find_package(Boost 1.45.0 COMPONENTS filesystem)
 
+include_directories(${Boost_INCLUDE_DIRS})
 add_executable(main src/main.cpp src/grabcut.cpp src/graph.cpp src/maxflow.cpp)
 
-target_link_libraries(main ${OpenCV_LIBS})
+target_link_libraries(main ${OpenCV_LIBS} ${Boost_LIBRARIES})
