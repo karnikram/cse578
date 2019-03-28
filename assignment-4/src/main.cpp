@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 					if(grabcut.getRoiState() == GrabCut::SET)
 					{
 						std::cout << "Starting grabcut!\n" << std::endl;
-						grabcut.initializeModel();
+						grabcut.runGrabCut();
 					}
 					else
 						std::cout << "First select ROI!\n" << std::endl;

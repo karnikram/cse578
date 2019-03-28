@@ -1,13 +1,15 @@
 #include <iostream>
 #include <vector>
 #include <opencv2/core.hpp>
-#include <Eigen/Core>
+#include <Eigen/Dense>
 
 struct Gaussian
 {
 	Eigen::Vector3f mean;
 	Eigen::Matrix3f covariance;
-	float weight = 0;
+	Eigen::Matrix3f inverse_covariance;
+	double detm_covariance;
+	double weight = 0;
 	int sample_count = 0;
 };
 
