@@ -49,7 +49,7 @@
   2018701007}
 \end{center}
 
-The procedure for implementing the GrabCut algorithm for foreground extraction, along with the code is explained in this report. The generated results are then provided. The influence of the hyperparameters on the obtained results is explained at the end.
+The procedure for implementing the GrabCut algorithm for foreground extraction, along with the code is explained in this report. The influence of the hyperparameters on the obtained results is then discussed. The generated results are provided at the end.
 
 The code files are provided in the \texttt{code} directory along with this submission. The code is written in C++ and is written as a class (\texttt{GrabCut}) for modularity. To run the program,
 
@@ -67,9 +67,7 @@ Each step in the procedure is explained briefly in the following subsections, al
 
   \subsection{User interaction}
   
-  The user is required to draw a bounding box around the object of interest, thereby labelling some background pixels. This is implemented using OpenCV's \texttt{highgui} module. Once the bounding box is set, the grabcut algorithm begins.
-  
-  The code is as follows:
+  The user is required to draw a bounding box around the object of interest, thereby labelling some background pixels. This is implemented using OpenCV's \texttt{highgui} module. Once the bounding box is set, the grabcut algorithm begins. The code is as follows:
   \begin{lstlisting}[language=C++]
 void GrabCut::captureMouseClick(int event, int x, int y, int flags, void *userdata)
 {
@@ -113,9 +111,7 @@ void GrabCut::captureMouseClick(int event, int x, int y, int flags, void *userda
   
   \subsection{Initializing Gaussian mixture models}
   
-  First an alpha matte matrix is initialized with the background pixels hard labelled as $0$, and the unknown pixels (those within the bounding box) soft labelled as foreground or $3$. 5-component GMMs are then fitted for the background and foreground regions each using Kmeans. 
-  
-  The following is the corresponding code:
+  First an alpha matte matrix is initialized with the background pixels hard labelled as $0$, and the unknown pixels (those within the bounding box) soft labelled as foreground or $3$. 5-component GMMs are then fitted for the background and foreground regions each using Kmeans. The following is the corresponding code:
   \begin{lstlisting}[language=C++]
 void GrabCut::initializeGmm()
 {
@@ -228,7 +224,7 @@ void GrabCut::initializeGmm()
   
   \subsection{Constructing a graph and solving}
   
-    The unary and binary cost terms in the Gibb's segmentation energy function segmentation are then computed.  The function is then minimized using min-cut. GrabCut co-author Vladimir's C-library implementation for max-flow/min-cut is made use of for this purpose. The unary cost terms correspond to the terminal edges, and the binary cost terms correspond to the pixel-pixel edges. The code as follows:
+    The unary and binary cost terms in the Gibb's segmentation energy function segmentation are then computed.  The function is then minimized using min-cut. GrabCut co-author Vladimir's C-library implementation for max-flow/min-cut is made use of for this purpose. The unary cost terms correspond to the terminal edges, and the binary cost terms correspond to the pixel-pixel edges. The code is as follows:
     \begin{lstlisting}[language=C++]
     
 void GrabCut::estimateNeighborWeights(const double &beta, const double &gamma, cv::Mat &left_weights,
@@ -522,13 +518,13 @@ void GrabCut::runGrabCut()
      
 \section{Hyperparameters}
 \subsection{Number of iterations}
-Images in which the foregound object is only a small fraction of the bounding box region required more number of iterations. Images with a large foreground, like the \texttt{flower} example gave a good result in one step. However, the segmentation doesn't converge - more likely to be a bug in my implementation.
+Images in which the foregound object is only a small fraction of the bounding box region required more number of iterations. Images with a large foreground, like the \texttt{flower} example gave a good result in one step. However, the segmentation doesn't converge to a fixed segmentation - more likely to be a bug in my implementation.
 
 \subsection{Number of components}
-Performance decreased with more number of components, especially for images with fewer colors. In a sense, more components cases multiple components to be assigned to the same object. Number of components was set to 5 for generating results.
+Performance decreased with more number of components, especially for images with fewer colors. In a sense, more components causes multiple components to be assigned to the same object which leads to harder segmentation. Number of components was set to 5 for generating results.
 
 \subsection{Number of neighbors}
-8-neighborhood gave better results than 4-neigborhood and also required fewer iterations. 8-neighborhood was used for generating results.
+8-neighborhood gave better results than 4-neighborhood and also required fewer iterations. 8-neighborhood was used for generating results.
 
 \subsection{Color space}
 Though in theory, color spaces like HSV and LAB can lead to better segmentation results, I did not get any better results in my experiments. YCrCb space gave worse results.
