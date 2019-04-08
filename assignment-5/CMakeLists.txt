@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.5.11)
+project(optical-flow)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_BUILD_TYPE Debug)
+find_package(OpenCV REQUIRED)
+add_executable(run src/run.cpp src/optical_flow.cpp)
+target_link_libraries(run ${OpenCV_LIBS})
