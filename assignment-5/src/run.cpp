@@ -17,6 +17,7 @@ int main(int argc, char **argv)
 	cv::Mat img2 = cv::imread(img2_path, 0);
 
 	OpticalFlow optical_flow(img1, img2, output_path);
+	optical_flow.computeImageGradients();
 
 	return 0;
 }
