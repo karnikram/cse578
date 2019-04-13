@@ -3,60 +3,102 @@
 #include <numeric>
 
 OpticalFlow::OpticalFlow(const cv::Mat &img1, const cv::Mat &img2,
-		const std::string &output_path)
+        const int &window_size)
 {
 	this->img1 = img1;
 	this->img2 = img2;
-	
-	this->img1_x.create(img1.size(), CV_8UC1);
-	this->img1_y.create(img1.size(), CV_8UC1);
-	this->img2_x.create(img2.size(), CV_8UC1);
-	this->img2_y.create(img2.size(), CV_8UC1);
-	
-	this->output_path = output_path;
+	this->window_size = window_size;
 }
 
-std::vector<uchar> OpticalFlow::getWindow(const cv::Mat &img, const int &i,
-        const int &j)
+int OpticalFlow::isValidPoint(const int &i, const int &j)
 {
-	std::vector<uchar> v_window;
-	
-	for(int ii = i - 1; ii <= i + 1; ii++)
-		for(int jj = j - 1; jj <= j + 1; jj++)
+    if(i >= 0 && i < img1.rows && j >= 0 && j < img1.cols)
+        return 1;
+     
+    else
+        return 0;
+}
+
+std::vector<float> OpticalFlow::getWindow(const cv::Mat &mat, const int &i, const int &j)
+{
+	std::vector<float> window;
+	for(size_t ii = i - window_size/2; ii <= i + window_size/2; ii++)
+		for(size_t jj = j - window_size/2; jj <= j + window_size/2; jj++)
 		{
-			v_window.push_back(img.at<uchar>(ii,jj));
+			window.push_back(mat.at<float>(ii, jj));
 		}
 
-	return v_window;
+	return window;
+}
+
+cv::Mat OpticalFlow::sumOverWindow(const cv::Mat &mat)
+{
+    cv::Mat sum = cv::Mat::zeros(mat.size(), CV_32FC1);
+    
+    for(int i = window_size/2; i < mat.rows - window_size/2; i++)
+        for(int j = window_size/2; j < mat.cols - window_size/2; j++)
+        {
+            std::vector<float> window = getWindow(mat, i, j);
+            sum.at<float>(i, j) = std::accumulate(window.begin(), window.end(), 0.0);
+        }
+        
+    return sum;        
 }
 
 void OpticalFlow::computeImageGradients()
 {
-    std::vector<int> sobel_x {-1, 0, 1, -2, 0, 2, -1, 0, 1};
-    std::vector<int> sobel_y {1, 2, 1, 0, 0, 0, -1, -2, -1};
-    
-	for(int i = 1; i < img1.rows - 1; i++)
-		for(int j = 1; j < img1.cols - 1; j++)
-		{
-		    std::vector<uchar> window = getWindow(img1, i, j);
-			img1_x.at<uchar>(i, j) = abs(std::inner_product(std::begin(window), std::end(window), std::begin(sobel_x), 0));
-			img1_y.at<uchar>(i, j) = abs(std::inner_product(std::begin(window), std::end(window), std::begin(sobel_y), 0));
-		}
+    // img_x
+    cv::Mat kernel = cv::Mat::ones(2, 2, CV_32FC1);
+    kernel.at<float>(0, 0) = -1.0;
+    kernel.at<float>(1, 0) = -1.0;
 
-	for(int i = 1; i < img2.rows - 1; i++)
-		for(int j = 1; j < img2.cols - 1; j++)
-		{
-		    std::vector<uchar> window = getWindow(img2, i, j);
-		    img2_x.at<uchar>(i, j) = std::inner_product(std::begin(window), std::end(window), std::begin(sobel_x), 0);
-			img2_y.at<uchar>(i, j) = std::inner_product(std::begin(window), std::end(window), std::begin(sobel_y), 0);
-		}
-		
-		
-	cv::namedWindow("img1_x", CV_WINDOW_AUTOSIZE);
-	cv::imshow("img1_x", img1_x);
-	cv::namedWindow("img1_y", CV_WINDOW_AUTOSIZE);
-	cv::imshow("img1_y", img1_y);
-	
-	std::cout << img1_x.size() << std::endl;
-	cv::waitKey();
+    cv::Mat dst1, dst2;
+    filter2D(img1, dst1, -1, kernel);
+    filter2D(img2, dst2, -1, kernel);
+
+    img_x = dst1 + dst2;
+
+    // img_y
+    kernel = cv::Mat::ones(2, 2, CV_32FC1);
+    kernel.at<float>(0, 0) = -1.0;
+    kernel.at<float>(0, 1) = -1.0;
+
+    filter2D(img1, dst1, -1, kernel);
+    filter2D(img2, dst2, -1, kernel);
+
+    img_y = dst1 + dst2;
+
+	// img_t
+	kernel = cv::Mat::ones(2, 2, CV_32FC1);
+    kernel = kernel.mul(-1);
+
+    filter2D(img1, dst1, -1, kernel);
+    kernel = kernel.mul(-1);
+    filter2D(img2, dst2, -1, kernel);
+
+    img_t = dst1 + dst2;
+}
+
+void OpticalFlow::computeOpticalFlow(cv::Mat &u, cv::Mat &v)
+{
+    computeImageGradients();
+    
+    cv::Mat img_xx = img_x.mul(img_x);
+    cv::Mat img_yy = img_y.mul(img_y);
+    cv::Mat img_xy = img_x.mul(img_y);
+    cv::Mat img_xt = img_x.mul(img_t);
+    cv::Mat img_yt = img_y.mul(img_t);
+    
+    cv::Mat sum_img_xx = sumOverWindow(img_xx);
+    cv::Mat sum_img_yy = sumOverWindow(img_yy);
+    cv::Mat sum_img_xy = sumOverWindow(img_xy);
+    cv::Mat sum_img_xt = sumOverWindow(img_xt);
+    cv::Mat sum_img_yt = sumOverWindow(img_yt);
+    
+    cv::Mat tmp = sum_img_xx.mul(sum_img_yy) - sum_img_xy.mul(sum_img_xy);
+    u = sum_img_xy.mul(sum_img_yt) - sum_img_yy.mul(sum_img_xt);
+    v = sum_img_xt.mul(sum_img_xy) - sum_img_xx.mul(sum_img_yt);
+    
+    cv::divide(u, tmp, u);
+    cv::divide(v, tmp, v);
 }
