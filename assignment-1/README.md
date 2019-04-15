@@ -10,4 +10,4 @@ make
 ./run_undistorted_dlt
 ```
 
-Please refer to the [report](./report/2018701007.pdf) for further details.
+Please refer to the [report](./report/2018701007.pdf) and [ps](./ps.pdf) for further details.

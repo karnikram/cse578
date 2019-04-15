@@ -8,4 +8,4 @@ make
 ./chroma_keying <video1-path> <video2-path>
 ```
 
-Please refer to the [report](./report.pdf) for further details.
+Please refer to the [report](./report.pdf) and [ps](./ps.pdf) for further details.
