@@ -17,7 +17,7 @@ Dr. Avinash Sharma
 #### [Assignment 1 - Camera Calibration](./assignment-1)
 
 <div align="center">
-  <img src="./assignment-1/report/imgs/cube-overlay.png" width="200px" />
+  <img src="./assignment-1/data/cube-overlay.png" width="200px" />
 </div>
 
 #### [Assignment 2 - Image Mosaicing](./assignment-2)
