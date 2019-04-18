@@ -14,7 +14,7 @@ int main(int argc, char **argv)
 {
 	if(argc < 3)
 	{
-		std::cout << "Incorrect usage!\n Correct usage: ./main <path-to-image> <path-to-save-foreground>\n";
+		std::cout << "Incorrect usage!\n Correct usage: ./run <path-to-image> <path-to-save-foreground>\n";
 		return -1;
 	}
 

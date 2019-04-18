@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 {
 	if(argc < 2)
 	{
-		std::cout << "Incorrect input format!\nCorrect usage: ./run <video_path>\n";
+		std::cout << "Incorrect input format!\nCorrect usage: ./run_tracking <video_path>\n";
 		return -1;
 	}
 

@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 {
 	if(argc < 3)
 	{
-		std::cout << "Incorrect input format!\nCorrect usage: ./run <img1_path> <img2_path>\n";
+		std::cout << "Incorrect input format!\nCorrect usage: ./run_of <img1_path> <img2_path>\n";
 		return -1;
 	}
 
